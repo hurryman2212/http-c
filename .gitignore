@@ -1,0 +1,13 @@
+*
+!.gitignore
+
+!*.md
+
+!Makefile
+
+!*.c
+!*.h
+
+!*.html
+!public_html
+!public_html/**/
