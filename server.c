@@ -1,8 +1,10 @@
 /* https://github.com/AaronKalair/C-Web-Server/blob/master/server.c */
 
-#include <arpa/inet.h>  // inet (3) funtions
-#include <errno.h>      // error number library
-#include <fcntl.h>      // for O_* constants
+#include <arpa/inet.h> // inet (3) funtions
+#include <assert.h>
+#include <errno.h> // error number library
+#include <fcntl.h> // for O_* constants
+#include <pthread.h>
 #include <signal.h>     // signal handling
 #include <stdio.h>      // input/output library
 #include <stdlib.h>     // standard library
@@ -243,6 +245,7 @@ int printFile(int fd, char *filename) {
   free(temp);
 
   // Return how big the file we sent out was
+  assert(!fclose(read));
   return totalsize;
 }
 
@@ -297,6 +300,8 @@ int recordTotalBytes(int bytes_sent, sharedVariables *mempointer) {
 }
 
 int main(int argc, char *argv[]) {
+  signal(SIGPIPE, SIG_IGN);
+
   int conn_s;                     //  connection socket
   short int port = atoi(argv[1]); //  port number
   struct sockaddr_in servaddr;    //  socket address structure
@@ -316,6 +321,12 @@ int main(int argc, char *argv[]) {
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
   servaddr.sin_port = htons(port);
+
+  const int optval = 1;
+  assert(
+      !setsockopt(list_s, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)));
+  assert(
+      !setsockopt(list_s, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval)));
 
   // bind to the socket address
   if (bind(list_s, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
@@ -426,12 +437,6 @@ int main(int argc, char *argv[]) {
         // Increment our count of total datasent by all processes and get back
         // the new total
         totaldata = recordTotalBytes(headersize + pagesize, mempointer);
-
-        // Print out which process handled the request and how much data was
-        // sent
-        printf(
-            "Process %d served a request of %d bytes. Total bytes sent %d  \n",
-            getpid(), headersize + pagesize, totaldata);
 
         // Close the connection now were done
         close(conn_s);
